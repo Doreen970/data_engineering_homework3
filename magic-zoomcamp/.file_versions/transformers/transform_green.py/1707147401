@@ -1,0 +1,39 @@
+
+import pandas as pd
+
+if 'transformer' not in globals():
+    from mage_ai.data_preparation.decorators import transformer
+if 'test' not in globals():
+    from mage_ai.data_preparation.decorators import test
+
+
+def camel_to_snake(camel_string):
+    return ''.join(['_' + i.lower() if i.isupper() else i for i in camel_string]).lstrip('_')
+
+
+@transformer
+def transform(data, *args, **kwargs):
+    print("Rows with zero passengers:", data['passenger_count'].isin([0]).sum())
+    data = data[data['passenger_count'] > 0]
+
+    print("Rows with zero trip_distance:", data['trip_distance'].isin([0]).sum())
+    data = data[data['trip_distance'] > 0]
+
+    # Convert 'lpep_pickup_datetime' to a date and create 'lpep_pickup_date' column
+    data['lpep_pickup_date'] = pd.to_datetime(data['lpep_pickup_datetime']).dt.date
+
+    # Convert camel case column names to snake case
+    data.columns = [camel_to_snake(col) for col in data.columns]
+
+    print(data["vendor_id"])
+    return data
+
+@test
+def test_output(output, *args):
+    assert output['passenger_count'].isin([0]).sum() == 0, 'There are rides with zero passengers'
+    assert output['trip_distance'].isin([0]).sum() == 0, 'There are rides with zero trip distance'
+    
+    # Assert that vendor_id values are in the existing columns
+    assert 'vendor_id' in output.columns, 'vendor_id column is missing'
+    existing_vendor_ids = output['vendor_id'].unique()
+    assert 1 in existing_vendor_ids, 'vendor_id value 1 should be one of the existing values in the column'
